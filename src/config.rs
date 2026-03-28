@@ -44,6 +44,7 @@
 //! ```
 
 use std::collections::HashMap;
+#[cfg(feature = "serde")]
 use std::path::Path;
 
 // ─── Calibration ─────────────────────────────────────────────────────────────

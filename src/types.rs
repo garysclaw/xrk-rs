@@ -43,7 +43,7 @@ impl Lap {
     pub fn time_str(&self) -> String {
         let m = self.time_ms / 60_000;
         let s = (self.time_ms % 60_000) as f64 / 1000.0;
-        format!("{}:{:06.3f}", m, s)
+        format!("{}:{:06.3}", m, s)
     }
 
     /// Lap duration as floating-point seconds.
