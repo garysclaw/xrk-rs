@@ -144,10 +144,30 @@ dfs.save_parquet("output/")?;
 
 ## Python bindings
 
+### Install (once published to PyPI)
+
 ```bash
-pip install maturin
-maturin develop --features python
+# With uv (recommended)
+uv add xrk
+
+# With pip
+pip install xrk
 ```
+
+### Development / build from source
+
+```bash
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone and build
+git clone https://github.com/garysclaw/xrk-rs && cd xrk-rs
+uv venv
+uv pip install maturin
+uv run maturin develop --features python
+```
+
+### Usage
 
 ```python
 import xrk
@@ -159,9 +179,29 @@ for lap in session.laps():
     print(f"  Lap {lap.number}: {lap.time_str()}")
 
 ch = session.channel("LF_Shock")
-print(f"{ch.name}: {ch.n_samples} samples")
-print(ch.raw_values()[:10])  # raw ADC counts
+print(f"{ch.name}: {ch.n_samples} samples, mean {ch.mean_voltage:.3f} V")
+print(ch.raw_values()[:10])      # raw ADC counts
+print(ch.voltages()[:10])        # converted to 0–5 V
+print(ch.calibrated(14.9, -11.2)[:10])  # your gain/offset → mm
+
+# Per-lap stats for every channel → list of dicts → polars/pandas
+import polars as pl
+df = pl.DataFrame(session.all_channel_lap_stats())
+print(df)
 ```
+
+### OS compatibility
+
+**Yes — fully OS independent.** The wheel is pre-compiled native Rust for your platform.
+When a version tag is pushed, GitHub Actions automatically builds wheels for:
+
+| Platform | Wheel |
+|----------|-------|
+| Linux x86_64 | `manylinux_2_28` — works on Ubuntu 18+, RHEL 8+, Debian 10+ |
+| macOS | `universal2` — single wheel runs on both Intel and Apple Silicon |
+| Windows | `x86_64` MSVC |
+
+No Rust toolchain needed on the user's machine — just `pip install xrk` or `uv add xrk`.
 
 ---
 
