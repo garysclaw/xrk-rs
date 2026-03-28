@@ -182,7 +182,7 @@ fn populate_samples(
         let time_sec = (raw_ts.wrapping_sub(first_ts) as f64 * time_scale) as f32;
 
         // If we haven't seen this channel ID before, create an entry for it
-        if !id_to_idx.contains_key(&ch_id) {
+        let idx = *id_to_idx.entry(ch_id).or_insert_with(|| {
             let idx = channels.len();
             channels.push(Channel {
                 id: ch_id,
@@ -190,10 +190,9 @@ fn populate_samples(
                 short_name: format!("Ch{:02}", ch_id),
                 samples: Vec::new(),
             });
-            id_to_idx.insert(ch_id, idx);
-        }
+            idx
+        });
 
-        let idx = id_to_idx[&ch_id];
         for i in 0..n_samples {
             let raw = u16_le(data, data_start + i * 2);
             channels[idx].samples.push(Sample { time_sec, raw });
