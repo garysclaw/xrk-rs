@@ -1,10 +1,10 @@
-use std::path::Path;
 use crate::{parser, XrkError};
+use std::path::Path;
 
 /// Channel identifier — the numeric ID as stored in the XRK file.
 pub type ChannelId = u16;
 
-// ─── Session metadata ─────────────────────────────────────────────────────────
+// ─── Session metadata ─────────────────────────────────────────────────────────────
 
 /// Top-level session metadata extracted from XRK header chunks.
 #[derive(Debug, Clone, Default)]
@@ -122,51 +122,69 @@ impl Channel {
 
     /// Mean raw ADC value.
     pub fn mean(&self) -> Option<f64> {
-        if self.samples.is_empty() { return None; }
+        if self.samples.is_empty() {
+            return None;
+        }
         let sum: f64 = self.samples.iter().map(|s| s.raw as f64).sum();
         Some(sum / self.samples.len() as f64)
     }
 
     /// Effective sample rate in Hz given the total session duration.
     pub fn sample_rate_hz(&self, duration_sec: f64) -> f64 {
-        if duration_sec <= 0.0 || self.samples.is_empty() { return 0.0; }
+        if duration_sec <= 0.0 || self.samples.is_empty() {
+            return 0.0;
+        }
         self.samples.len() as f64 / duration_sec
     }
 
     /// Samples within a session-relative time window [start_sec, end_sec].
     pub fn samples_in_range(&self, start_sec: f64, end_sec: f64) -> &[Sample] {
-        let lo = self.samples.partition_point(|s| (s.time_sec as f64) < start_sec);
-        let hi = self.samples.partition_point(|s| (s.time_sec as f64) <= end_sec);
+        let lo = self
+            .samples
+            .partition_point(|s| (s.time_sec as f64) < start_sec);
+        let hi = self
+            .samples
+            .partition_point(|s| (s.time_sec as f64) <= end_sec);
         &self.samples[lo..hi]
     }
 
     /// Compute descriptive statistics for each lap.
     pub fn per_lap_stats(&self, laps: &[Lap]) -> Vec<LapStats> {
-        laps.iter().map(|lap| {
-            let slice = self.samples_in_range(lap.start_sec, lap.end_sec());
-            let n = slice.len();
-            if n == 0 {
-                return LapStats {
+        laps.iter()
+            .map(|lap| {
+                let slice = self.samples_in_range(lap.start_sec, lap.end_sec());
+                let n = slice.len();
+                if n == 0 {
+                    return LapStats {
+                        lap_number: lap.number,
+                        lap_time_ms: lap.time_ms,
+                        n_samples: 0,
+                        mean: 0.0,
+                        std: 0.0,
+                        min: 0,
+                        max: 0,
+                    };
+                }
+                let mean = slice.iter().map(|s| s.raw as f64).sum::<f64>() / n as f64;
+                let variance = slice
+                    .iter()
+                    .map(|s| {
+                        let d = s.raw as f64 - mean;
+                        d * d
+                    })
+                    .sum::<f64>()
+                    / n as f64;
+                LapStats {
                     lap_number: lap.number,
                     lap_time_ms: lap.time_ms,
-                    n_samples: 0,
-                    mean: 0.0, std: 0.0, min: 0, max: 0,
-                };
-            }
-            let mean = slice.iter().map(|s| s.raw as f64).sum::<f64>() / n as f64;
-            let variance = slice.iter()
-                .map(|s| { let d = s.raw as f64 - mean; d * d })
-                .sum::<f64>() / n as f64;
-            LapStats {
-                lap_number: lap.number,
-                lap_time_ms: lap.time_ms,
-                n_samples: n,
-                mean,
-                std: variance.sqrt(),
-                min: slice.iter().map(|s| s.raw).min().unwrap_or(0),
-                max: slice.iter().map(|s| s.raw).max().unwrap_or(0),
-            }
-        }).collect()
+                    n_samples: n,
+                    mean,
+                    std: variance.sqrt(),
+                    min: slice.iter().map(|s| s.raw).min().unwrap_or(0),
+                    max: slice.iter().map(|s| s.raw).max().unwrap_or(0),
+                }
+            })
+            .collect()
     }
 }
 
@@ -216,7 +234,8 @@ impl XrkFile {
     /// The fastest lap with a duration of at least `min_ms` milliseconds.
     /// Pass `min_ms = 0` to include all laps.
     pub fn best_lap(&self, min_ms: u32) -> Option<&Lap> {
-        self.laps.iter()
+        self.laps
+            .iter()
             .filter(|l| l.time_ms >= min_ms)
             .min_by_key(|l| l.time_ms)
     }
