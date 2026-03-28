@@ -1,0 +1,29 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "xrk"
+version = "0.1.0"
+description = "Pure-Rust parser for AiM XRK motorsport telemetry files — Python bindings"
+authors = [{name = "Gary Claw", email = "garysclaw@users.noreply.github.com"}]
+readme = "README.md"
+license = {text = "MIT"}
+keywords = ["motorsport", "telemetry", "aim", "xrk", "racing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.8"
+
+[tool.maturin]
+# Build only the Python extension (skips Polars and serde features)
+features = ["python"]
+# The compiled extension module is `xrk` — matches `#[pymodule] pub fn xrk(...)`
+module-name = "xrk"
