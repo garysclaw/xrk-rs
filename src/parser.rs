@@ -25,35 +25,45 @@ pub fn parse(data: &[u8]) -> Result<XrkFile, XrkError> {
     }
 
     // Pass 1: collect all )(M timestamps for time-scale calibration
-    let (first_ts, last_ts) = first_last_timestamps(data)
-        .ok_or(XrkError::NoDataMarkers)?;
+    let (first_ts, last_ts) =
+        first_last_timestamps(data).ok_or(XrkError::NoDataMarkers)?;
 
     let ts_range = last_ts.wrapping_sub(first_ts) as f64;
 
     // Pass 2: derive session duration from last lap record
     let duration_sec = derive_duration(data, first_ts, ts_range);
-    let time_scale = if ts_range > 0.0 { duration_sec / ts_range } else { 0.003068 };
+    let time_scale = if ts_range > 0.0 {
+        duration_sec / ts_range
+    } else {
+        0.003068
+    };
 
     // Pass 3: parse everything
-    let info     = parse_info(data, duration_sec);
+    let info = parse_info(data, duration_sec);
     let channels = parse_channel_defs(data); // names/IDs from <hCHS chunks
-    let laps     = parse_laps(data, first_ts, time_scale);
+    let laps = parse_laps(data, first_ts, time_scale);
     let channels = populate_samples(data, first_ts, time_scale, channels);
 
-    Ok(XrkFile { info, laps, channels })
+    Ok(XrkFile {
+        info,
+        laps,
+        channels,
+    })
 }
 
 // ─── Timestamp utilities ──────────────────────────────────────────────────────
 
 fn first_last_timestamps(data: &[u8]) -> Option<(u32, u32)> {
     let mut first = None;
-    let mut last  = None;
-    let mut pos   = 0;
+    let mut last = None;
+    let mut pos = 0;
 
     while pos + 7 <= data.len() {
         if data[pos..pos + 3] == *b")(M" {
             let ts = u32_le(data, pos + 3);
-            if first.is_none() { first = Some(ts); }
+            if first.is_none() {
+                first = Some(ts);
+            }
             last = Some(ts);
             pos += 3;
         } else {
@@ -65,7 +75,9 @@ fn first_last_timestamps(data: &[u8]) -> Option<(u32, u32)> {
 
 /// Estimate session duration from the last lap's end time.
 fn derive_duration(data: &[u8], first_ts: u32, ts_range: f64) -> f64 {
-    if ts_range <= 0.0 { return 0.0; }
+    if ts_range <= 0.0 {
+        return 0.0;
+    }
 
     // Bootstrap with a rough scale, then find the last lap end
     let rough = ts_range * 0.003068; // ~3ms/unit empirical starting point
@@ -77,32 +89,38 @@ fn derive_duration(data: &[u8], first_ts: u32, ts_range: f64) -> f64 {
     while pos + 32 <= data.len() {
         if &data[pos..pos + 5] == b"<hLAP" {
             let lap_num = u16_le(data, pos + 14);
-            let lap_ms  = u32_le(data, pos + 16);
+            let lap_ms = u32_le(data, pos + 16);
             let start_ts = u32_le(data, pos + 28);
 
             if (1..=500).contains(&lap_num) && (500..=3_600_000).contains(&lap_ms) {
                 let start = start_ts.wrapping_sub(first_ts) as f64 * bootstrap_scale;
-                let end   = start + lap_ms as f64 / 1000.0;
-                if end > latest_end { latest_end = end; }
+                let end = start + lap_ms as f64 / 1000.0;
+                if end > latest_end {
+                    latest_end = end;
+                }
             }
         }
         pos += 1;
     }
 
-    if latest_end > 10.0 { latest_end } else { rough }
+    if latest_end > 10.0 {
+        latest_end
+    } else {
+        rough
+    }
 }
 
 // ─── Session info ─────────────────────────────────────────────────────────────
 
 fn parse_info(data: &[u8], duration_sec: f64) -> SessionInfo {
     SessionInfo {
-        date:         extract_string(data, b"<hTMD"),
-        time:         extract_string(data, b"<hTMT"),
-        track:        extract_string(data, b"<hTRK"),
-        vehicle:      extract_string(data, b"<hVEH"),
-        logger:       extract_string(data, b"<hHWN"),
+        date: extract_string(data, b"<hTMD"),
+        time: extract_string(data, b"<hTMT"),
+        track: extract_string(data, b"<hTRK"),
+        vehicle: extract_string(data, b"<hVEH"),
+        logger: extract_string(data, b"<hHWN"),
         duration_sec,
-        file_size:    data.len(),
+        file_size: data.len(),
     }
 }
 
@@ -127,7 +145,10 @@ fn parse_channel_defs(data: &[u8]) -> Vec<Channel> {
         let strings = extract_ascii_strings(window, 2);
 
         let short_name = strings.first().cloned().unwrap_or_default();
-        let long_name  = strings.into_iter().nth(1).unwrap_or_else(|| short_name.clone());
+        let long_name = strings
+            .into_iter()
+            .nth(1)
+            .unwrap_or_else(|| short_name.clone());
 
         channels.push(Channel {
             id,
@@ -167,12 +188,12 @@ fn populate_samples(
             continue;
         }
 
-        let raw_ts    = u32_le(data, pos + 3);
-        let ch_id     = u16_le(data, pos + 7);
+        let raw_ts = u32_le(data, pos + 3);
+        let ch_id = u16_le(data, pos + 7);
         let n_samples = u16_le(data, pos + 9) as usize;
 
         let data_start = pos + 11;
-        let data_end   = data_start + n_samples * 2;
+        let data_end = data_start + n_samples * 2;
 
         if n_samples == 0 || n_samples > 200 || data_end > data.len() {
             pos += 1;
@@ -203,7 +224,8 @@ fn populate_samples(
 
     // Sort each channel's samples by time (markers can arrive slightly out of order)
     for ch in &mut channels {
-        ch.samples.sort_unstable_by(|a, b| a.time_sec.partial_cmp(&b.time_sec).unwrap());
+        ch.samples
+            .sort_unstable_by(|a, b| a.time_sec.partial_cmp(&b.time_sec).unwrap());
     }
 
     // Drop channels with zero samples (defined in CHS but never transmitted)
@@ -215,7 +237,7 @@ fn populate_samples(
 
 fn parse_laps(data: &[u8], first_ts: u32, time_scale: f64) -> Vec<Lap> {
     let mut laps = Vec::new();
-    let mut pos  = 0;
+    let mut pos = 0;
 
     while pos + 32 <= data.len() {
         if &data[pos..pos + 5] != b"<hLAP" {
@@ -223,13 +245,17 @@ fn parse_laps(data: &[u8], first_ts: u32, time_scale: f64) -> Vec<Lap> {
             continue;
         }
 
-        let lap_num  = u16_le(data, pos + 14);
-        let lap_ms   = u32_le(data, pos + 16);
+        let lap_num = u16_le(data, pos + 14);
+        let lap_ms = u32_le(data, pos + 16);
         let start_ts = u32_le(data, pos + 28);
 
         if (1..=500).contains(&lap_num) && (500..=3_600_000).contains(&lap_ms) {
             let start_sec = start_ts.wrapping_sub(first_ts) as f64 * time_scale;
-            laps.push(Lap { number: lap_num, time_ms: lap_ms, start_sec });
+            laps.push(Lap {
+                number: lap_num,
+                time_ms: lap_ms,
+                start_sec,
+            });
         }
         pos += 5;
     }
@@ -244,7 +270,9 @@ fn parse_laps(data: &[u8], first_ts: u32, time_scale: f64) -> Vec<Lap> {
 /// Find the first occurrence of `tag` and extract the longest printable ASCII
 /// string from the following 80 bytes.
 fn extract_string(data: &[u8], tag: &[u8]) -> String {
-    let Some(pos) = find(data, tag) else { return String::new() };
+    let Some(pos) = find(data, tag) else {
+        return String::new();
+    };
     let window = &data[(pos + 8).min(data.len())..(pos + 80).min(data.len())];
     extract_ascii_strings(window, 3)
         .into_iter()
@@ -259,13 +287,17 @@ fn extract_ascii_strings(data: &[u8], min_len: usize) -> Vec<String> {
 
     for (i, &b) in data.iter().enumerate() {
         if b.is_ascii_graphic() || b == b' ' {
-            if start.is_none() { start = Some(i); }
+            if start.is_none() {
+                start = Some(i);
+            }
         } else if let Some(s) = start.take() {
             let candidate = &data[s..i];
             if candidate.len() >= min_len {
                 if let Ok(text) = std::str::from_utf8(candidate) {
                     let text = text.trim().to_string();
-                    if !text.is_empty() { results.push(text); }
+                    if !text.is_empty() {
+                        results.push(text);
+                    }
                 }
             }
         }
@@ -275,7 +307,9 @@ fn extract_ascii_strings(data: &[u8], min_len: usize) -> Vec<String> {
         if candidate.len() >= min_len {
             if let Ok(text) = std::str::from_utf8(candidate) {
                 let text = text.trim().to_string();
-                if !text.is_empty() { results.push(text); }
+                if !text.is_empty() {
+                    results.push(text);
+                }
             }
         }
     }
@@ -288,5 +322,11 @@ fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 // ─── Integer readers ─────────────────────────────────────────────────────────
 
-#[inline(always)] fn u16_le(d: &[u8], o: usize) -> u16 { u16::from_le_bytes([d[o], d[o+1]]) }
-#[inline(always)] fn u32_le(d: &[u8], o: usize) -> u32 { u32::from_le_bytes([d[o], d[o+1], d[o+2], d[o+3]]) }
+#[inline(always)]
+fn u16_le(d: &[u8], o: usize) -> u16 {
+    u16::from_le_bytes([d[o], d[o + 1]])
+}
+#[inline(always)]
+fn u32_le(d: &[u8], o: usize) -> u32 {
+    u32::from_le_bytes([d[o], d[o + 1], d[o + 2], d[o + 3]])
+}
