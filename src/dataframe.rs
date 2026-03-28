@@ -27,8 +27,8 @@
 //! dfs.save_parquet("output/").unwrap();
 //! ```
 
-use polars::prelude::*;
 use crate::types::{Channel, XrkFile};
+use polars::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -45,7 +45,9 @@ impl SessionDataFrames {
     /// Build all DataFrames from a parsed XrkFile.
     pub fn from_session(session: &XrkFile) -> Self {
         let laps = build_laps_df(session);
-        let channels = session.channels.iter()
+        let channels = session
+            .channels
+            .iter()
             .map(|ch| (ch.name.clone(), channel_df(ch)))
             .collect();
         SessionDataFrames { laps, channels }
@@ -94,10 +96,10 @@ impl SessionDataFrames {
 // ─── DataFrame builders ───────────────────────────────────────────────────────
 
 fn build_laps_df(session: &XrkFile) -> DataFrame {
-    let numbers:   Vec<u32>    = session.laps.iter().map(|l| l.number as u32).collect();
-    let times_ms:  Vec<u32>    = session.laps.iter().map(|l| l.time_ms).collect();
+    let numbers: Vec<u32> = session.laps.iter().map(|l| l.number as u32).collect();
+    let times_ms: Vec<u32> = session.laps.iter().map(|l| l.time_ms).collect();
     let time_strs: Vec<String> = session.laps.iter().map(|l| l.time_str()).collect();
-    let starts:    Vec<f64>    = session.laps.iter().map(|l| l.start_sec).collect();
+    let starts: Vec<f64> = session.laps.iter().map(|l| l.start_sec).collect();
 
     df! {
         "lap_number" => numbers,
@@ -113,9 +115,11 @@ fn build_laps_df(session: &XrkFile) -> DataFrame {
 /// Columns: `time_sec` (f32), `raw` (u32 — ADC counts 0–65535),
 /// `voltage` (f32 — converted to 0.0–5.0 V)
 pub fn channel_df(channel: &Channel) -> DataFrame {
-    let times:    Vec<f32> = channel.samples.iter().map(|s| s.time_sec).collect();
-    let raws:     Vec<u32> = channel.samples.iter().map(|s| s.raw as u32).collect();
-    let voltages: Vec<f32> = channel.samples.iter()
+    let times: Vec<f32> = channel.samples.iter().map(|s| s.time_sec).collect();
+    let raws: Vec<u32> = channel.samples.iter().map(|s| s.raw as u32).collect();
+    let voltages: Vec<f32> = channel
+        .samples
+        .iter()
         .map(|s| s.raw as f32 / 65535.0 * 5.0)
         .collect();
 
@@ -138,18 +142,18 @@ fn build_lap_stats_df(session: &XrkFile) -> DataFrame {
 
     for ch in &session.channels {
         let stats = ch.per_lap_stats(&session.laps);
-        let ns:    Vec<u32> = stats.iter().map(|s| s.n_samples as u32).collect();
+        let ns: Vec<u32> = stats.iter().map(|s| s.n_samples as u32).collect();
         let means: Vec<f64> = stats.iter().map(|s| s.mean).collect();
-        let stds:  Vec<f64> = stats.iter().map(|s| s.std).collect();
-        let mins:  Vec<u32> = stats.iter().map(|s| s.min as u32).collect();
-        let maxs:  Vec<u32> = stats.iter().map(|s| s.max as u32).collect();
+        let stds: Vec<f64> = stats.iter().map(|s| s.std).collect();
+        let mins: Vec<u32> = stats.iter().map(|s| s.min as u32).collect();
+        let maxs: Vec<u32> = stats.iter().map(|s| s.max as u32).collect();
 
         let n = &ch.name;
-        cols.push(Series::new(format!("{n}_n").into(),    ns).into());
+        cols.push(Series::new(format!("{n}_n").into(), ns).into());
         cols.push(Series::new(format!("{n}_mean").into(), means).into());
-        cols.push(Series::new(format!("{n}_std").into(),  stds).into());
-        cols.push(Series::new(format!("{n}_min").into(),  mins).into());
-        cols.push(Series::new(format!("{n}_max").into(),  maxs).into());
+        cols.push(Series::new(format!("{n}_std").into(), stds).into());
+        cols.push(Series::new(format!("{n}_min").into(), mins).into());
+        cols.push(Series::new(format!("{n}_max").into(), maxs).into());
     }
 
     DataFrame::new(cols).expect("lap_stats DataFrame build failed")
