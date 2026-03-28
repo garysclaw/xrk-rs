@@ -3,25 +3,51 @@
 //! A pure-Rust, cross-platform parser for AiM Sports XRK binary telemetry
 //! files. No AiM SDK required.
 //!
-//! ## Quick start
+//! The library has two layers:
+//!
+//! 1. **Parser** — reads the binary file, returns raw ADC samples with
+//!    channel names exactly as stored in the file. Zero assumptions.
+//!
+//! 2. **Config** — an optional, serializable [`LoggerConfig`] that maps
+//!    channel names → physical calibrations. Save once per car, apply to
+//!    every session. Pairs naturally with a Tauri/web app that lets users
+//!    manage their configs.
+//!
+//! ## Quick start (raw)
 //!
 //! ```no_run
 //! use xrk::XrkFile;
 //!
-//! let session = XrkFile::open("data/38_Mobile_In_a_0023.xrk").unwrap();
+//! let session = XrkFile::open("session.xrk").unwrap();
 //!
 //! println!("Track: {}", session.info.track);
-//! println!("Laps:  {}", session.laps.len());
-//!
+//! for ch in &session.channels {
+//!     println!("  {} — {} samples", ch.name, ch.samples.len());
+//! }
 //! for lap in &session.laps {
 //!     println!("  Lap {:2}: {}", lap.number, lap.time_str());
 //! }
+//! ```
 //!
-//! if let Some(ch) = session.channel_by_name("LF_Shock") {
-//!     println!("LF_Shock samples: {}", ch.samples.len());
+//! ## With calibration config
+//!
+//! ```no_run
+//! use xrk::{XrkFile, config::{LoggerConfig, Calibration}};
+//!
+//! // Load a saved config (or build one with LoggerConfig::new())
+//! let cfg = LoggerConfig::load("my_car.json").unwrap();
+//! let session = XrkFile::open("session.xrk").unwrap();
+//!
+//! if let Some(ch) = session.channel("LF_Shock") {
+//!     for sample in &ch.samples {
+//!         // cfg.apply() returns Option<f64> — None if channel not in config
+//!         let mm = cfg.apply("LF_Shock", sample.raw).unwrap_or(0.0);
+//!         println!("{:.3}s  {:.1} mm", sample.time_sec, mm);
+//!     }
 //! }
 //! ```
 
+pub mod config;
 pub mod error;
 pub mod parser;
 pub mod types;
@@ -32,12 +58,6 @@ pub mod dataframe;
 #[cfg(feature = "python")]
 pub mod python;
 
+pub use config::{Calibration, LoggerConfig};
 pub use error::XrkError;
-pub use types::{
-    Calibration, Channel, ChannelId, Lap, LapStats, Sample, SessionInfo, XrkFile,
-    CH_INLINE_ACC, CH_LATERAL_ACC, CH_VERTICAL_ACC,
-    CH_LF_SHOCK, CH_RF_SHOCK, CH_LR_SHOCK, CH_RR_SHOCK,
-    CH_ROLL_RATE, CH_PITCH_RATE, CH_YAW_RATE,
-    CH_GPS_LAT_ACC, CH_GPS_INL_ACC, CH_GPS_YAW_RATE,
-    CH_LUMINOSITY, CH_RPM, CH_VBAT, CH_LOGGER_TEMP, CH_ODOMETER,
-};
+pub use types::{Channel, ChannelId, Lap, LapStats, Sample, SessionInfo, XrkFile};

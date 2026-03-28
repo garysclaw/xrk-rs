@@ -15,17 +15,22 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 thiserror = "1"
 
-# Optional: Polars DataFrame output (enable with --features dataframe)
+# Config serialization (LoggerConfig → JSON)
+serde      = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+
+# Polars DataFrame output
 polars = { version = "0.46", features = ["lazy", "csv", "parquet"], optional = true }
 
-# Optional: Python bindings via PyO3 (enable with --features python)
+# Python bindings via PyO3/maturin
 pyo3 = { version = "0.22", features = ["extension-module"], optional = true }
 
 [features]
 default = []
+serde     = ["dep:serde", "dep:serde_json"]
 dataframe = ["dep:polars"]
 python    = ["dep:pyo3"]
-full      = ["dataframe", "python"]
+full      = ["serde", "dataframe", "python"]
 
 [dev-dependencies]
 approx = "0.5"
