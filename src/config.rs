@@ -81,7 +81,7 @@ impl Calibration {
     /// let cal = Calibration::two_point(0.75, 0.0, 4.10, 50.0);
     /// ```
     pub fn two_point(v_low: f64, phys_low: f64, v_high: f64, phys_high: f64) -> Self {
-        let gain   = (phys_high - phys_low) / (v_high - v_low);
+        let gain = (phys_high - phys_low) / (v_high - v_low);
         let offset = phys_low - gain * v_low;
         Self { gain, offset }
     }
@@ -139,7 +139,10 @@ pub struct LoggerConfig {
 impl LoggerConfig {
     /// Create a new empty config with the given name.
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), ..Default::default() }
+        Self {
+            name: name.into(),
+            ..Default::default()
+        }
     }
 
     /// Add a channel calibration.
@@ -150,12 +153,15 @@ impl LoggerConfig {
         unit: impl Into<String>,
     ) -> &mut Self {
         let name = channel_name.into();
-        self.channels.insert(name.clone(), ChannelConfig {
-            name: name.clone(),
-            description: String::new(),
-            unit: unit.into(),
-            calibration,
-        });
+        self.channels.insert(
+            name.clone(),
+            ChannelConfig {
+                name: name.clone(),
+                description: String::new(),
+                unit: unit.into(),
+                calibration,
+            },
+        );
         self
     }
 
@@ -168,12 +174,15 @@ impl LoggerConfig {
         description: impl Into<String>,
     ) -> &mut Self {
         let name = channel_name.into();
-        self.channels.insert(name.clone(), ChannelConfig {
-            name: name.clone(),
-            description: description.into(),
-            unit: unit.into(),
-            calibration,
-        });
+        self.channels.insert(
+            name.clone(),
+            ChannelConfig {
+                name: name.clone(),
+                description: description.into(),
+                unit: unit.into(),
+                calibration,
+            },
+        );
         self
     }
 
