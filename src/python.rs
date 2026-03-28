@@ -25,8 +25,8 @@
 //! print(df)
 //! ```
 
+use crate::types::{Channel, Lap, LapStats, XrkFile};
 use pyo3::prelude::*;
-use crate::types::{XrkFile, Lap, Channel, LapStats};
 
 // ─── Python wrapper types ─────────────────────────────────────────────────────
 
@@ -37,11 +37,25 @@ pub struct PyLap {
 
 #[pymethods]
 impl PyLap {
-    #[getter] fn number(&self)    -> u16  { self.inner.number }
-    #[getter] fn time_ms(&self)   -> u32  { self.inner.time_ms }
-    #[getter] fn start_sec(&self) -> f64  { self.inner.start_sec }
-    #[getter] fn end_sec(&self)   -> f64  { self.inner.end_sec() }
-    fn time_str(&self) -> String { self.inner.time_str() }
+    #[getter]
+    fn number(&self) -> u16 {
+        self.inner.number
+    }
+    #[getter]
+    fn time_ms(&self) -> u32 {
+        self.inner.time_ms
+    }
+    #[getter]
+    fn start_sec(&self) -> f64 {
+        self.inner.start_sec
+    }
+    #[getter]
+    fn end_sec(&self) -> f64 {
+        self.inner.end_sec()
+    }
+    fn time_str(&self) -> String {
+        self.inner.time_str()
+    }
     fn __repr__(&self) -> String {
         format!("<Lap {} {}>", self.inner.number, self.inner.time_str())
     }
@@ -54,9 +68,18 @@ pub struct PyChannel {
 
 #[pymethods]
 impl PyChannel {
-    #[getter] fn id(&self)        -> u16  { self.inner.id }
-    #[getter] fn name(&self)      -> &str { &self.inner.name }
-    #[getter] fn n_samples(&self) -> usize { self.inner.samples.len() }
+    #[getter]
+    fn id(&self) -> u16 {
+        self.inner.id
+    }
+    #[getter]
+    fn name(&self) -> &str {
+        &self.inner.name
+    }
+    #[getter]
+    fn n_samples(&self) -> usize {
+        self.inner.samples.len()
+    }
 
     /// Sample timestamps as a list of floats (seconds).
     fn times(&self) -> Vec<f32> {
@@ -70,17 +93,23 @@ impl PyChannel {
 
     /// Voltage values as a list of floats (0.0–5.0 V).
     fn voltages(&self) -> Vec<f32> {
-        self.inner.samples.iter()
+        self.inner
+            .samples
+            .iter()
             .map(|s| s.raw as f32 / 65535.0 * 5.0)
             .collect()
     }
 
     /// Samples calibrated to physical units: `physical = gain * voltage + offset`
     fn calibrated(&self, gain: f32, offset: f32) -> Vec<f32> {
-        self.inner.samples.iter().map(|s| {
-            let v = s.raw as f32 / 65535.0 * 5.0;
-            gain * v + offset
-        }).collect()
+        self.inner
+            .samples
+            .iter()
+            .map(|s| {
+                let v = s.raw as f32 / 65535.0 * 5.0;
+                gain * v + offset
+            })
+            .collect()
     }
 
     /// Mean voltage across all samples (0.0–5.0 V).
@@ -88,17 +117,21 @@ impl PyChannel {
     fn mean_voltage(&self) -> f32 {
         match self.inner.mean() {
             Some(m) => (m / 65535.0 * 5.0) as f32,
-            None    => 0.0,
+            None => 0.0,
         }
     }
 
     /// Minimum raw ADC value.
     #[getter]
-    fn min_raw(&self) -> u16 { self.inner.min().unwrap_or(0) }
+    fn min_raw(&self) -> u16 {
+        self.inner.min().unwrap_or(0)
+    }
 
     /// Maximum raw ADC value.
     #[getter]
-    fn max_raw(&self) -> u16 { self.inner.max().unwrap_or(0) }
+    fn max_raw(&self) -> u16 {
+        self.inner.max().unwrap_or(0)
+    }
 
     fn __repr__(&self) -> String {
         format!(
@@ -118,33 +151,56 @@ pub struct PyLapStats {
 
 #[pymethods]
 impl PyLapStats {
-    #[getter] fn lap_number(&self)  -> u16   { self.inner.lap_number }
-    #[getter] fn lap_time_ms(&self) -> u32   { self.inner.lap_time_ms }
-    #[getter] fn n_samples(&self)   -> usize { self.inner.n_samples }
+    #[getter]
+    fn lap_number(&self) -> u16 {
+        self.inner.lap_number
+    }
+    #[getter]
+    fn lap_time_ms(&self) -> u32 {
+        self.inner.lap_time_ms
+    }
+    #[getter]
+    fn n_samples(&self) -> usize {
+        self.inner.n_samples
+    }
     /// Mean raw ADC count (0–65535).
-    #[getter] fn mean_raw(&self)    -> f64   { self.inner.mean }
+    #[getter]
+    fn mean_raw(&self) -> f64 {
+        self.inner.mean
+    }
     /// Std-dev of raw ADC counts.
-    #[getter] fn std_raw(&self)     -> f64   { self.inner.std }
+    #[getter]
+    fn std_raw(&self) -> f64 {
+        self.inner.std
+    }
     /// Min raw ADC value.
-    #[getter] fn min_raw(&self)     -> u16   { self.inner.min }
+    #[getter]
+    fn min_raw(&self) -> u16 {
+        self.inner.min
+    }
     /// Max raw ADC value.
-    #[getter] fn max_raw(&self)     -> u16   { self.inner.max }
+    #[getter]
+    fn max_raw(&self) -> u16 {
+        self.inner.max
+    }
     /// Mean voltage (0.0–5.0 V).
-    #[getter] fn mean_voltage(&self) -> f32  {
+    #[getter]
+    fn mean_voltage(&self) -> f32 {
         (self.inner.mean / 65535.0 * 5.0) as f32
     }
 
     fn to_dict(&self, py: Python<'_>) -> PyObject {
         use pyo3::types::PyDict;
         let d = PyDict::new(py);
-        d.set_item("lap",        self.inner.lap_number).unwrap();
-        d.set_item("time_ms",    self.inner.lap_time_ms).unwrap();
-        d.set_item("n_samples",  self.inner.n_samples).unwrap();
-        d.set_item("mean_raw",   self.inner.mean).unwrap();
-        d.set_item("std_raw",    self.inner.std).unwrap();
-        d.set_item("min_raw",    self.inner.min).unwrap();
-        d.set_item("max_raw",    self.inner.max).unwrap();
-        d.set_item("mean_v",     (self.inner.mean / 65535.0 * 5.0) as f32).unwrap();
+        d.set_item("lap", self.inner.lap_number).unwrap();
+        d.set_item("time_ms", self.inner.lap_time_ms).unwrap();
+        d.set_item("n_samples", self.inner.n_samples).unwrap();
+        d.set_item("mean_raw", self.inner.mean).unwrap();
+        d.set_item("std_raw", self.inner.std).unwrap();
+        d.set_item("min_raw", self.inner.min).unwrap();
+        d.set_item("max_raw", self.inner.max).unwrap();
+        d.set_item("mean_v", (self.inner.mean / 65535.0 * 5.0) as f32)
+            .unwrap();
         d.into()
     }
 }
@@ -159,20 +215,44 @@ pub struct PySession {
 #[pymethods]
 impl PySession {
     // --- Metadata ---
-    #[getter] fn track(&self)        -> &str  { &self.inner.info.track }
-    #[getter] fn date(&self)         -> &str  { &self.inner.info.date }
-    #[getter] fn time(&self)         -> &str  { &self.inner.info.time }
-    #[getter] fn vehicle(&self)      -> &str  { &self.inner.info.vehicle }
-    #[getter] fn duration_sec(&self) -> f64   { self.inner.info.duration_sec }
-    #[getter] fn file_size(&self)    -> usize { self.inner.info.file_size }
+    #[getter]
+    fn track(&self) -> &str {
+        &self.inner.info.track
+    }
+    #[getter]
+    fn date(&self) -> &str {
+        &self.inner.info.date
+    }
+    #[getter]
+    fn time(&self) -> &str {
+        &self.inner.info.time
+    }
+    #[getter]
+    fn vehicle(&self) -> &str {
+        &self.inner.info.vehicle
+    }
+    #[getter]
+    fn duration_sec(&self) -> f64 {
+        self.inner.info.duration_sec
+    }
+    #[getter]
+    fn file_size(&self) -> usize {
+        self.inner.info.file_size
+    }
 
     // --- Laps ---
     fn laps(&self) -> Vec<PyLap> {
-        self.inner.laps.iter().map(|l| PyLap { inner: l.clone() }).collect()
+        self.inner
+            .laps
+            .iter()
+            .map(|l| PyLap { inner: l.clone() })
+            .collect()
     }
 
     fn lap(&self, number: u16) -> Option<PyLap> {
-        self.inner.laps.iter()
+        self.inner
+            .laps
+            .iter()
             .find(|l| l.number == number)
             .map(|l| PyLap { inner: l.clone() })
     }
@@ -206,15 +286,16 @@ impl PySession {
             let stats = ch.per_lap_stats(&self.inner.laps);
             for s in &stats {
                 let d = PyDict::new(py);
-                d.set_item("channel",   &ch.name).unwrap();
-                d.set_item("lap",       s.lap_number).unwrap();
-                d.set_item("time_ms",   s.lap_time_ms).unwrap();
+                d.set_item("channel", &ch.name).unwrap();
+                d.set_item("lap", s.lap_number).unwrap();
+                d.set_item("time_ms", s.lap_time_ms).unwrap();
                 d.set_item("n_samples", s.n_samples).unwrap();
-                d.set_item("mean_raw",  s.mean).unwrap();
-                d.set_item("std_raw",   s.std).unwrap();
-                d.set_item("min_raw",   s.min).unwrap();
-                d.set_item("max_raw",   s.max).unwrap();
-                d.set_item("mean_v",    (s.mean / 65535.0 * 5.0) as f32).unwrap();
+                d.set_item("mean_raw", s.mean).unwrap();
+                d.set_item("std_raw", s.std).unwrap();
+                d.set_item("min_raw", s.min).unwrap();
+                d.set_item("max_raw", s.max).unwrap();
+                d.set_item("mean_v", (s.mean / 65535.0 * 5.0) as f32)
+                    .unwrap();
                 rows.push(d.into());
             }
         }
@@ -237,18 +318,16 @@ impl PySession {
 /// Open and parse an AiM XRK telemetry file from disk.
 #[pyfunction]
 fn open(path: &str) -> PyResult<PySession> {
-    let inner = XrkFile::open(path).map_err(|e| {
-        pyo3::exceptions::PyIOError::new_err(e.to_string())
-    })?;
+    let inner =
+        XrkFile::open(path).map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
     Ok(PySession { inner })
 }
 
 /// Parse an XRK file from bytes already loaded in Python.
 #[pyfunction]
 fn from_bytes(data: &[u8]) -> PyResult<PySession> {
-    let inner = XrkFile::from_bytes(data).map_err(|e| {
-        pyo3::exceptions::PyIOError::new_err(e.to_string())
-    })?;
+    let inner = XrkFile::from_bytes(data)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
     Ok(PySession { inner })
 }
 
