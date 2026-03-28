@@ -25,8 +25,7 @@ pub fn parse(data: &[u8]) -> Result<XrkFile, XrkError> {
     }
 
     // Pass 1: collect all )(M timestamps for time-scale calibration
-    let (first_ts, last_ts) =
-        first_last_timestamps(data).ok_or(XrkError::NoDataMarkers)?;
+    let (first_ts, last_ts) = first_last_timestamps(data).ok_or(XrkError::NoDataMarkers)?;
 
     let ts_range = last_ts.wrapping_sub(first_ts) as f64;
 
